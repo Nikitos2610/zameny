@@ -116,7 +116,7 @@
 
     <div class="form-group">
       <label>День недели</label>
-      <select id="day">
+      <select id="day" onchange="updateClasses()">
         <option>Понедельник</option>
         <option>Вторник</option>
         <option>Среда</option>
@@ -127,7 +127,7 @@
 
     <div class="form-group">
       <label>Урок</label>
-      <select id="lesson">
+      <select id="lesson" onchange="updateClasses()">
         <option>1</option>
         <option>2</option>
         <option>3</option>
@@ -140,12 +140,16 @@
 
     <div class="form-group">
       <label>Класс</label>
-      <input type="text" id="class" placeholder="Например: 6Б" />
+      <select id="classSelect" onchange="updateTeachers()">
+        <option value="">Выберите класс</option>
+      </select>
     </div>
 
     <div class="form-group">
       <label>Заменяющий учитель</label>
-      <input type="text" id="teacher" placeholder="Фамилия учителя" />
+      <select id="teacherSelect">
+        <option value="">Выберите учителя</option>
+      </select>
     </div>
 
     <button onclick="addReplacement()">Добавить замену</button>
@@ -177,20 +181,41 @@
     </div>
 
     <button id="shareBtn" class="btn-success" onclick="shareImage()" style="display:none;">
-      Поделиться в Telegram
+      Поделиться изображением
     </button>
   </div>
 
   <script>
-    const schedule = {
-      "Понедельник 1": { class: "6Б", teacher: "Воронкова" },
-      "Понедельник 2": { class: "7В", teacher: "Воронкова" },
-      "Понедельник 3": { class: "8Г", teacher: "Воронкова" },
-      "Понедельник 4": { class: "6А", teacher: "Воронкова" },
-      "Понедельник 5": { class: "9Б", teacher: "Воронкова" },
-      "Понедельник 6": { class: "8Г", teacher: "Воронкова" },
-      "Понедельник 7": { class: "10В", teacher: "Воронкова" },
-    };
+    // Данные расписания и учителей
+    const teachers = [
+      { name: 'Воронкова', subject: 'Математика', schedule: {
+        'Понедельник 1': '6Б',
+        'Понедельник 2': '7В',
+        'Понедельник 3': '8Г',
+        'Понедельник 4': '6А',
+        'Понедельник 5': '9Б',
+        'Понедельник 6': '8Г',
+        'Понедельник 7': '10В'
+      }},
+      { name: 'Чистопашина', subject: 'Математика', schedule: {} },
+      { name: 'Петрова', subject: 'Русский язык', schedule: {
+        'Вторник 1': '6Б',
+        'Вторник 2': '7В',
+        'Среда 3': '8Г'
+      }},
+      { name: 'Сидорова', subject: 'Русский язык', schedule: {
+        'Четверг 4': '9Б',
+        'Пятница 5': '10В'
+      }},
+      // Добавьте больше учителей и расписаний по необходимости
+    ];
+
+    // Учителя по предметам
+    const teachersBySubject = {};
+    teachers.forEach(t => {
+      if (!teachersBySubject[t.subject]) teachersBySubject[t.subject] = [];
+      teachersBySubject[t.subject].push(t.name);
+    });
 
     let replacements = [];
     let WebApp = null;
@@ -210,37 +235,96 @@
       setTimeout(() => el.textContent = "", 4000);
     }
 
-    function addReplacement() {
+    function getSlot() {
       const day = document.getElementById("day").value;
       const lesson = document.getElementById("lesson").value;
-      const className = document.getElementById("class").value.trim();
-      const newTeacher = document.getElementById("teacher").value.trim();
+      return `${day} ${lesson}`;
+    }
+
+    function updateClasses() {
+      const slot = getSlot();
+      const classSelect = document.getElementById("classSelect");
+      classSelect.innerHTML = '<option value="">Выберите класс</option>';
+      const classes = new Set();
+      teachers.forEach(t => {
+        if (t.schedule[slot]) classes.add(t.schedule[slot]);
+      });
+      [...classes].sort().forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls;
+        option.textContent = cls;
+        classSelect.appendChild(option);
+      });
+      updateTeachers(); // Очистить учителей если нужно
+    }
+
+    function updateTeachers() {
+      const teacherSelect = document.getElementById("teacherSelect");
+      teacherSelect.innerHTML = '<option value="">Выберите учителя</option>';
+      const className = document.getElementById("classSelect").value;
+      if (!className) return;
+
+      const slot = getSlot();
+      let original = null;
+      let subject = null;
+      teachers.forEach(t => {
+        if (t.schedule[slot] === className) {
+          original = t.name;
+          subject = t.subject;
+        }
+      });
+
+      if (!subject) return;
+
+      teachersBySubject[subject].filter(name => name !== original).sort().forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        teacherSelect.appendChild(option);
+      });
+    }
+
+    function findOriginalAndSubject(slot, className) {
+      let original = null;
+      let subject = null;
+      teachers.forEach(t => {
+        if (t.schedule[slot] === className) {
+          original = t.name;
+          subject = t.subject;
+        }
+      });
+      return { original, subject };
+    }
+
+    function addReplacement() {
+      const slot = getSlot();
+      const className = document.getElementById("classSelect").value;
+      const newTeacher = document.getElementById("teacherSelect").value;
 
       if (!className || !newTeacher) {
-        showError("Заполните класс и учителя");
+        showError("Выберите класс и учителя");
         return;
       }
 
-      const slot = `${day} ${lesson}`;
-      const entry = schedule[slot];
-
-      if (!entry || entry.class !== className) {
-        showError(`Нет урока для класса ${className} в ${day} на ${lesson}-м уроке`);
+      const { original, subject } = findOriginalAndSubject(slot, className);
+      if (!original) {
+        showError(`Нет урока для класса ${className} в этот слот`);
         return;
       }
 
       replacements.push({
-        day, lesson, class: className, original: entry.teacher, replacement: newTeacher
+        day: document.getElementById("day").value,
+        lesson: document.getElementById("lesson").value,
+        class: className,
+        original,
+        replacement: newTeacher,
+        subject
       });
 
       updateList();
-      clearForm();
+      document.getElementById("classSelect").value = "";
+      document.getElementById("teacherSelect").value = "";
       showGenerateButton();
-    }
-
-    function clearForm() {
-      document.getElementById("class").value = "";
-      document.getElementById("teacher").value = "";
     }
 
     function showGenerateButton() {
@@ -256,7 +340,7 @@
       }
       list.innerHTML = replacements.map(r =>
         `<div class="replacement-item">
-          <strong>${r.day}, ${r.lesson} урок:</strong> 
+          <strong>${r.day}, ${r.lesson} урок (${r.subject}):</strong> 
           ${r.class} — ${r.original} → <span style="color:#1a73e8">${r.replacement}</span>
         </div>`
       ).join("");
@@ -285,14 +369,13 @@
       document.getElementById("preview").style.display = "block";
       document.getElementById("shareBtn").style.display = "block";
 
-      // Генерация изображения
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
           scale: 2,
           backgroundColor: "#ffffff",
           logging: false
         }).then(canvas => {
-          currentImageData = canvas.toDataURL("image/jpeg", 0.9);
+          currentImageData = canvas.toDataURL("image/jpeg", 0.8); // Снижена качество для размера
           if (WebApp) {
             WebApp.MainButton.setText("Поделиться фото");
             WebApp.MainButton.show();
@@ -302,31 +385,38 @@
       }, 100);
     }
 
-    function shareImage() {
+    async function shareImage() {
       if (!currentImageData) {
         showError("Изображение ещё не готово");
         return;
       }
 
-      if (WebApp) {
-        // Убираем data:image/jpeg;base64,
+      try {
         const base64 = currentImageData.split(',')[1];
-        if (base64.length > 4_000_000) {
-          alert("Изображение слишком большое. Отправьте вручную.");
-          return;
+        const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+        const file = new File([blob], 'замены.jpg', { type: 'image/jpeg' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          // Fallback: скачать
+          const a = document.createElement("a");
+          a.href = currentImageData;
+          a.download = "замены.jpg";
+          a.click();
         }
-        WebApp.sendData(base64); // Бот получит base64
-        WebApp.close();
-      } else {
-        // Скачать
-        const a = document.createElement("a");
-        a.href = currentImageData;
-        a.download = "замены.jpg";
-        a.click();
+      } catch (err) {
+        showError("Ошибка分享: " + err.message);
+        // Fallback на sendData если в Mini App
+        if (WebApp) {
+          WebApp.sendData(currentImageData.split(',')[1]);
+        }
       }
     }
 
     // Инициализация
+    updateClasses();
     updateList();
   </script>
 </body>
