@@ -6,7 +6,6 @@
   <title>Замены уроков</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
   <style>
     * { box-sizing: border-box; }
     body {
@@ -65,7 +64,6 @@
     }
     .error { color: #d32f2f; font-size: 14px; margin-top: 10px; }
     .no-data { color: #999; font-style: italic; }
-
     #preview {
       background: white;
       padding: 20px;
@@ -108,7 +106,6 @@
       font-weight: bold;
       color: #d32f2f;
     }
-
     .btn-success { background: #4CAF50; }
     .btn-success:hover { background: #3d8b40; }
     .btn-copy { background: #FF9800; margin-top: 5px; }
@@ -125,7 +122,6 @@
 <body>
   <div class="container">
     <h1>Замены уроков</h1>
-
     <div class="form-group">
       <label>Учебный предмет</label>
       <select id="subject" onchange="updateAll()">
@@ -136,7 +132,6 @@
         <option>Литература</option>
       </select>
     </div>
-
     <div class="form-group">
       <label>День недели</label>
       <select id="day" onchange="updateClasses()">
@@ -147,7 +142,6 @@
         <option>Пятница</option>
       </select>
     </div>
-
     <div class="form-group">
       <label>Урок</label>
       <select id="lesson" onchange="updateClasses()">
@@ -160,33 +154,27 @@
         <option>7</option>
       </select>
     </div>
-
     <div class="form-group">
       <label>Класс</label>
       <select id="classSelect" onchange="updateTeachers()">
         <option value="">Выберите класс</option>
       </select>
     </div>
-
     <div class="form-group">
       <label>Заменяющий учитель</label>
       <select id="teacherSelect">
         <option value="">Выберите учителя</option>
       </select>
     </div>
-
     <button onclick="addReplacement()">Добавить замену</button>
     <div id="error" class="error"></div>
-
     <div id="replacements" class="replacements">
       <h3>Текущие замены:</h3>
       <div id="list"></div>
     </div>
-
     <button id="generateBtn" onclick="generateImage()" style="display:none;">
       Сгенерировать изображение
     </button>
-
     <div id="preview">
       <h2>Замены уроков</h2>
       <table id="previewTable">
@@ -203,22 +191,6 @@
         <tbody></tbody>
       </table>
     </div>
-
-    <!-- Кнопка скачивания JPG -->
-    <button id="downloadBtn" class="btn-success" onclick="downloadImage()" style="display:none;">
-      Скачать JPG
-    </button>
-
-    <!-- Кнопка отправки текста -->
-    <button id="shareTextBtn" class="btn-success" onclick="shareText()" style="display:none; margin-top:5px;">
-      Поделиться текстом
-    </button>
-
-    <!-- Кнопка копирования -->
-    <button id="copyBtn" class="btn-copy" onclick="copyText()" style="display:none;">
-      Копировать текст
-    </button>
-
     <div id="status" class="status"></div>
   </div>
 
@@ -245,70 +217,56 @@
         'Вторник 5': '8Г'
       }},
     ];
-
     const teachersBySubject = {};
     teachers.forEach(t => {
       if (!teachersBySubject[t.subject]) teachersBySubject[t.subject] = [];
       teachersBySubject[t.subject].push(t.name);
     });
-
     let replacements = [];
     let currentImageData = null;
-    let currentText = "";
 
     function showError(msg) {
       const el = document.getElementById("error");
       el.textContent = msg;
       setTimeout(() => el.textContent = "", 4000);
     }
-
     function setStatus(msg) {
       const el = document.getElementById("status");
       el.textContent = msg;
       setTimeout(() => el.textContent = "", 3000);
     }
-
     function getSlot() {
       return `${document.getElementById("day").value} ${document.getElementById("lesson").value}`;
     }
-
     function updateAll() {
       updateClasses();
     }
-
     function updateClasses() {
       const subject = document.getElementById("subject").value;
       const slot = getSlot();
       const classSelect = document.getElementById("classSelect");
       classSelect.innerHTML = '<option value="">Выберите класс</option>';
-
       if (!subject) return;
-
       const classes = new Set();
       teachers.forEach(t => {
         if (t.subject === subject && t.schedule[slot]) {
           classes.add(t.schedule[slot]);
         }
       });
-
       [...classes].sort().forEach(cls => {
         const opt = document.createElement("option");
         opt.value = cls;
         opt.textContent = cls;
         classSelect.appendChild(opt);
       });
-
       updateTeachers();
     }
-
     function updateTeachers() {
       const teacherSelect = document.getElementById("teacherSelect");
       teacherSelect.innerHTML = '<option value="">Выберите учителя</option>';
-
       const subject = document.getElementById("subject").value;
       const className = document.getElementById("classSelect").value;
       if (!subject || !className) return;
-
       const slot = getSlot();
       let original = null;
       teachers.forEach(t => {
@@ -316,9 +274,7 @@
           original = t.name;
         }
       });
-
       if (!original) return;
-
       teachersBySubject[subject]
         .filter(name => name !== original)
         .sort()
@@ -329,17 +285,14 @@
           teacherSelect.appendChild(opt);
         });
     }
-
     function addReplacement() {
       const subject = document.getElementById("subject").value;
       const className = document.getElementById("classSelect").value;
       const newTeacher = document.getElementById("teacherSelect").value;
-
       if (!subject || !className || !newTeacher) {
         showError("Заполните все поля");
         return;
       }
-
       const slot = getSlot();
       let original = null;
       teachers.forEach(t => {
@@ -347,33 +300,27 @@
           original = t.name;
         }
       });
-
       if (!original) {
         showError("Нет урока в этом слоте");
         return;
       }
-
       replacements.push({
         subject, day: document.getElementById("day").value,
         lesson: document.getElementById("lesson").value,
         class: className, original, replacement: newTeacher
       });
-
       updateList();
       resetForm();
       showGenerateButton();
     }
-
     function resetForm() {
       document.getElementById("classSelect").value = "";
       document.getElementById("teacherSelect").innerHTML = '<option value="">Выберите учителя</option>';
     }
-
     function showGenerateButton() {
       document.getElementById("replacements").style.display = "block";
       document.getElementById("generateBtn").style.display = "block";
     }
-
     function updateList() {
       const list = document.getElementById("list");
       list.innerHTML = replacements.length === 0
@@ -386,22 +333,9 @@
           ).join("");
     }
 
-    function generateText() {
-      const lines = ["*Замены уроков*"];
-      replacements.forEach(r => {
-        lines.push(`• *${r.subject}*`);
-        lines.push(`  ${r.day}, ${r.lesson} урок`);
-        lines.push(`  Класс: ${r.class}`);
-        lines.push(`  Было: ${r.original}`);
-        lines.push(`  Стало: *${r.replacement}*`);
-        lines.push("");
-      });
-      return lines.join("\n").trim();
-    }
-
+    // === ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ===
     function generateImage() {
       if (replacements.length === 0) return showError("Нет замен");
-
       const tbody = document.querySelector("#previewTable tbody");
       tbody.innerHTML = "";
       replacements.forEach(r => {
@@ -416,13 +350,7 @@
         `;
         tbody.appendChild(row);
       });
-
       document.getElementById("preview").style.display = "block";
-      document.getElementById("downloadBtn").style.display = "block";
-      document.getElementById("shareTextBtn").style.display = "block";
-      document.getElementById("copyBtn").style.display = "block";
-
-      currentText = generateText();
 
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
@@ -432,16 +360,38 @@
           useCORS: true,
           allowTaint: true
         }).then(canvas => {
-          currentImageData = canvas.toDataURL("image/jpeg", 0.8);
+          currentImageData = canvas.toDataURL("image/png");
+          showNewShareButtons();
         }).catch(err => {
-          showError("Ошибка генерации");
+          showError("Ошибка генерации изображения");
           console.error(err);
         });
       }, 150);
     }
 
-    async function downloadImage() {
-      if (!currentImageData) return showError("Сначала сгенерируйте");
+    function showNewShareButtons() {
+      const container = document.querySelector('.container');
+      const existing = container.querySelectorAll('.new-btn');
+      existing.forEach(el => el.remove());
+
+      const btnPNG = document.createElement('button');
+      btnPNG.className = 'btn-success new-btn';
+      btnPNG.textContent = '📤 Отправить как PNG';
+      btnPNG.onclick = shareAsPNG;
+      btnPNG.style.marginTop = '10px';
+      container.appendChild(btnPNG);
+
+      const btnHTML = document.createElement('button');
+      btnHTML.className = 'btn-copy new-btn';
+      btnHTML.textContent = '🌐 Отправить как HTML';
+      btnHTML.onclick = shareAsHTML;
+      btnHTML.style.marginTop = '5px';
+      container.appendChild(btnHTML);
+    }
+
+    // === ОТПРАВКА PNG ===
+    async function shareAsPNG() {
+      if (!currentImageData) return showError("Изображение не готово");
 
       const base64 = currentImageData.split(',')[1];
       const byteCharacters = atob(base64);
@@ -450,60 +400,100 @@
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
       const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/jpeg' });
-      const url = URL.createObjectURL(blob);
+      const blob = new Blob([byteArray], { type: 'image/png' });
+      const file = new File([blob], "замены.png", { type: "image/png" });
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "замены.jpg";
-
-      // Для смартфонов — используем share
-      if (navigator.canShare && navigator.canShare({ files: [new File([blob], "замены.jpg", { type: "image/jpeg" })] })) {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
-            files: [new File([blob], "замены.jpg", { type: "image/jpeg" })],
-            title: "Замены уроков"
-          });
-          setStatus("Сохранено в 'Файлы'");
-        } catch (err) {
-          a.click();
-          setStatus("Скачано");
-        }
-      } else {
-        a.click();
-        setStatus("Скачано");
-      }
-
-      URL.revokeObjectURL(url);
-    }
-
-    async function shareText() {
-      if (!currentText) return showError("Сначала сгенерируйте");
-
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            text: currentText,
-            title: "Замены уроков"
+            files: [file],
+            title: "Замены уроков",
+            text: "Вот актуальные замены в виде изображения"
           });
           setStatus("Отправлено!");
         } catch (err) {
-          setStatus("Не удалось отправить");
+          if (err.name !== 'AbortError') {
+            fallbackDownload(file, "замены.png");
+          }
         }
       } else {
-        copyText();
+        fallbackDownload(file, "замены.png");
       }
     }
 
-    async function copyText() {
-      if (!currentText) return showError("Сначала сгенерируйте");
+    // === ОТПРАВКА HTML ===
+    async function shareAsHTML() {
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Замены уроков</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
+    .container { max-width: 600px; margin: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #1a73e8; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+    th { background: #1a73e8; color: white; }
+    tr:nth-child(even) { background: #f8fbff; }
+    .highlight { font-weight: bold; color: #d32f2f; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Замены уроков</h2>
+    <table>
+      <thead>
+        <tr><th>Предмет</th><th>День</th><th>Урок</th><th>Класс</th><th>Было</th><th>Стало</th></tr>
+      </thead>
+      <tbody>
+${replacements.map(r => `
+        <tr>
+          <td>${r.subject}</td>
+          <td>${r.day}</td>
+          <td>${r.lesson}</td>
+          <td>${r.class}</td>
+          <td>${r.original}</td>
+          <td class="highlight">${r.replacement}</td>
+        </tr>
+`).join('')}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>`;
 
-      try {
-        await navigator.clipboard.writeText(currentText);
-        setStatus("Скопировано в буфер!");
-      } catch (err) {
-        setStatus("Не удалось скопировать");
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const file = new File([blob], "замены.html", { type: "text/html" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Замены уроков",
+            text: "Вот замены в виде HTML-карточки (открывается в браузере)"
+          });
+          setStatus("HTML отправлен!");
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            fallbackDownload(file, "замены.html");
+          }
+        }
+      } else {
+        fallbackDownload(file, "замены.html");
       }
+    }
+
+    function fallbackDownload(file, filename) {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus("Скачано: " + filename);
     }
 
     // Инициализация
