@@ -109,12 +109,10 @@
       color: #d32f2f;
     }
 
-    .btn-download {
-      background: #4CAF50;
-    }
-    .btn-download:hover {
-      background: #3d8b40;
-    }
+    .btn-success { background: #4CAF50; }
+    .btn-success:hover { background: #3d8b40; }
+    .btn-copy { background: #FF9800; margin-top: 5px; }
+    .btn-copy:hover { background: #F57C00; }
     .status {
       color: #666;
       font-size: 14px;
@@ -206,9 +204,21 @@
       </table>
     </div>
 
-    <button id="downloadBtn" class="btn-download" onclick="downloadImage()" style="display:none;">
+    <!-- Кнопка скачивания JPG -->
+    <button id="downloadBtn" class="btn-success" onclick="downloadImage()" style="display:none;">
       Скачать JPG
     </button>
+
+    <!-- Кнопка отправки текста -->
+    <button id="shareTextBtn" class="btn-success" onclick="shareText()" style="display:none; margin-top:5px;">
+      Поделиться текстом
+    </button>
+
+    <!-- Кнопка копирования -->
+    <button id="copyBtn" class="btn-copy" onclick="copyText()" style="display:none;">
+      Копировать текст
+    </button>
+
     <div id="status" class="status"></div>
   </div>
 
@@ -244,6 +254,7 @@
 
     let replacements = [];
     let currentImageData = null;
+    let currentText = "";
 
     function showError(msg) {
       const el = document.getElementById("error");
@@ -252,8 +263,9 @@
     }
 
     function setStatus(msg) {
-      document.getElementById("status").textContent = msg;
-      setTimeout(() => document.getElementById("status").textContent = "", 3000);
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      setTimeout(() => el.textContent = "", 3000);
     }
 
     function getSlot() {
@@ -374,6 +386,19 @@
           ).join("");
     }
 
+    function generateText() {
+      const lines = ["*Замены уроков*"];
+      replacements.forEach(r => {
+        lines.push(`• *${r.subject}*`);
+        lines.push(`  ${r.day}, ${r.lesson} урок`);
+        lines.push(`  Класс: ${r.class}`);
+        lines.push(`  Было: ${r.original}`);
+        lines.push(`  Стало: *${r.replacement}*`);
+        lines.push("");
+      });
+      return lines.join("\n").trim();
+    }
+
     function generateImage() {
       if (replacements.length === 0) return showError("Нет замен");
 
@@ -394,7 +419,10 @@
 
       document.getElementById("preview").style.display = "block";
       document.getElementById("downloadBtn").style.display = "block";
-      setStatus("Готово к скачиванию");
+      document.getElementById("shareTextBtn").style.display = "block";
+      document.getElementById("copyBtn").style.display = "block";
+
+      currentText = generateText();
 
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
@@ -412,17 +440,70 @@
       }, 150);
     }
 
-    function downloadImage() {
-      if (!currentImageData) {
-        showError("Сначала сгенерируйте изображение");
-        return;
+    async function downloadImage() {
+      if (!currentImageData) return showError("Сначала сгенерируйте");
+
+      const base64 = currentImageData.split(',')[1];
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
-      a.href = currentImageData;
+      a.href = url;
       a.download = "замены.jpg";
-      a.click();
-      setStatus("Скачано!");
+
+      // Для смартфонов — используем share
+      if (navigator.canShare && navigator.canShare({ files: [new File([blob], "замены.jpg", { type: "image/jpeg" })] })) {
+        try {
+          await navigator.share({
+            files: [new File([blob], "замены.jpg", { type: "image/jpeg" })],
+            title: "Замены уроков"
+          });
+          setStatus("Сохранено в 'Файлы'");
+        } catch (err) {
+          a.click();
+          setStatus("Скачано");
+        }
+      } else {
+        a.click();
+        setStatus("Скачано");
+      }
+
+      URL.revokeObjectURL(url);
+    }
+
+    async function shareText() {
+      if (!currentText) return showError("Сначала сгенерируйте");
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            text: currentText,
+            title: "Замены уроков"
+          });
+          setStatus("Отправлено!");
+        } catch (err) {
+          setStatus("Не удалось отправить");
+        }
+      } else {
+        copyText();
+      }
+    }
+
+    async function copyText() {
+      if (!currentText) return showError("Сначала сгенерируйте");
+
+      try {
+        await navigator.clipboard.writeText(currentText);
+        setStatus("Скопировано в буфер!");
+      } catch (err) {
+        setStatus("Не удалось скопировать");
+      }
     }
 
     // Инициализация
