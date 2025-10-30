@@ -44,8 +44,13 @@
       cursor: pointer;
       margin-top: 10px;
       width: 100%;
+      transition: all 0.2s;
     }
-    button:hover { background: #1557b0; }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) { background: #1557b0; }
     .replacements {
       margin-top: 20px;
       padding: 15px;
@@ -71,12 +76,14 @@
       margin: 20px 0;
       display: none;
       max-width: 100%;
+      font-family: 'Segoe UI', sans-serif !important;
     }
     #preview h2 {
       text-align: center;
       color: #1a73e8;
       margin: 0 0 15px 0;
       font-size: 18px;
+      font-weight: 600;
     }
     #preview table {
       width: 100%;
@@ -88,6 +95,7 @@
       color: white;
       padding: 10px;
       text-align: center;
+      font-weight: 600;
     }
     #preview td {
       padding: 10px;
@@ -105,8 +113,14 @@
     .btn-success {
       background: #4CAF50;
     }
-    .btn-success:hover {
+    .btn-success:hover:not(:disabled) {
       background: #3d8b40;
+    }
+    .sharing {
+      color: #666;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -183,34 +197,26 @@
     <button id="shareBtn" class="btn-success" onclick="shareImage()" style="display:none;">
       Поделиться изображением
     </button>
+    <div id="sharingStatus" class="sharing"></div>
   </div>
 
   <script>
-    // Данные расписания и учителей
+    // Данные расписания
     const teachers = [
       { name: 'Воронкова', subject: 'Математика', schedule: {
-        'Понедельник 1': '6Б',
-        'Понедельник 2': '7В',
-        'Понедельник 3': '8Г',
-        'Понедельник 4': '6А',
-        'Понедельник 5': '9Б',
-        'Понедельник 6': '8Г',
+        'Понедельник 1': '6Б', 'Понедельник 2': '7В', 'Понедельник 3': '8Г',
+        'Понедельник 4': '6А', 'Понедельник 5': '9Б', 'Понедельник 6': '8Г',
         'Понедельник 7': '10В'
       }},
       { name: 'Чистопашина', subject: 'Математика', schedule: {} },
       { name: 'Петрова', subject: 'Русский язык', schedule: {
-        'Вторник 1': '6Б',
-        'Вторник 2': '7В',
-        'Среда 3': '8Г'
+        'Вторник 1': '6Б', 'Вторник 2': '7В', 'Среда 3': '8Г'
       }},
       { name: 'Сидорова', subject: 'Русский язык', schedule: {
-        'Четверг 4': '9Б',
-        'Пятница 5': '10В'
+        'Четверг 4': '9Б', 'Пятница 5': '10В'
       }},
-      // Добавьте больше учителей и расписаний по необходимости
     ];
 
-    // Учителя по предметам
     const teachersBySubject = {};
     teachers.forEach(t => {
       if (!teachersBySubject[t.subject]) teachersBySubject[t.subject] = [];
@@ -220,8 +226,8 @@
     let replacements = [];
     let WebApp = null;
     let currentImageData = null;
+    let isSharing = false;
 
-    // Telegram Web App
     if (window.Telegram && window.Telegram.WebApp) {
       WebApp = window.Telegram.WebApp;
       WebApp.ready();
@@ -235,10 +241,12 @@
       setTimeout(() => el.textContent = "", 4000);
     }
 
+    function setSharingStatus(msg) {
+      document.getElementById("sharingStatus").textContent = msg;
+    }
+
     function getSlot() {
-      const day = document.getElementById("day").value;
-      const lesson = document.getElementById("lesson").value;
-      return `${day} ${lesson}`;
+      return `${document.getElementById("day").value} ${document.getElementById("lesson").value}`;
     }
 
     function updateClasses() {
@@ -250,12 +258,12 @@
         if (t.schedule[slot]) classes.add(t.schedule[slot]);
       });
       [...classes].sort().forEach(cls => {
-        const option = document.createElement("option");
-        option.value = cls;
-        option.textContent = cls;
-        classSelect.appendChild(option);
+        const opt = document.createElement("option");
+        opt.value = cls;
+        opt.textContent = cls;
+        classSelect.appendChild(opt);
       });
-      updateTeachers(); // Очистить учителей если нужно
+      updateTeachers();
     }
 
     function updateTeachers() {
@@ -276,39 +284,36 @@
 
       if (!subject) return;
 
-      teachersBySubject[subject].filter(name => name !== original).sort().forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        teacherSelect.appendChild(option);
-      });
-    }
-
-    function findOriginalAndSubject(slot, className) {
-      let original = null;
-      let subject = null;
-      teachers.forEach(t => {
-        if (t.schedule[slot] === className) {
-          original = t.name;
-          subject = t.subject;
-        }
-      });
-      return { original, subject };
+      teachersBySubject[subject]
+        .filter(name => name !== original)
+        .sort()
+        .forEach(name => {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          teacherSelect.appendChild(opt);
+        });
     }
 
     function addReplacement() {
-      const slot = getSlot();
       const className = document.getElementById("classSelect").value;
       const newTeacher = document.getElementById("teacherSelect").value;
-
       if (!className || !newTeacher) {
         showError("Выберите класс и учителя");
         return;
       }
 
-      const { original, subject } = findOriginalAndSubject(slot, className);
+      const slot = getSlot();
+      const { original, subject } = teachers.reduce((acc, t) => {
+        if (t.schedule[slot] === className) {
+          acc.original = t.name;
+          acc.subject = t.subject;
+        }
+        return acc;
+      }, { original: null, subject: null });
+
       if (!original) {
-        showError(`Нет урока для класса ${className} в этот слот`);
+        showError("Нет урока в этом слоте");
         return;
       }
 
@@ -323,7 +328,7 @@
 
       updateList();
       document.getElementById("classSelect").value = "";
-      document.getElementById("teacherSelect").value = "";
+      document.getElementById("teacherSelect").innerHTML = '<option value="">Выберите учителя</option>';
       showGenerateButton();
     }
 
@@ -334,23 +339,18 @@
 
     function updateList() {
       const list = document.getElementById("list");
-      if (replacements.length === 0) {
-        list.innerHTML = "<p class='no-data'>Нет замен</p>";
-        return;
-      }
-      list.innerHTML = replacements.map(r =>
-        `<div class="replacement-item">
-          <strong>${r.day}, ${r.lesson} урок (${r.subject}):</strong> 
-          ${r.class} — ${r.original} → <span style="color:#1a73e8">${r.replacement}</span>
-        </div>`
-      ).join("");
+      list.innerHTML = replacements.length === 0
+        ? "<p class='no-data'>Нет замен</p>"
+        : replacements.map(r =>
+            `<div class="replacement-item">
+              <strong>${r.day}, ${r.lesson} урок (${r.subject}):</strong> 
+              ${r.class} — ${r.original} → <span style="color:#1a73e8">${r.replacement}</span>
+            </div>`
+          ).join("");
     }
 
     function generateImage() {
-      if (replacements.length === 0) {
-        showError("Нет замен");
-        return;
-      }
+      if (replacements.length === 0) return showError("Нет замен");
 
       const tbody = document.querySelector("#previewTable tbody");
       tbody.innerHTML = "";
@@ -368,50 +368,69 @@
 
       document.getElementById("preview").style.display = "block";
       document.getElementById("shareBtn").style.display = "block";
+      setSharingStatus("");
 
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
           scale: 2,
           backgroundColor: "#ffffff",
-          logging: false
+          logging: false,
+          useCORS: true
         }).then(canvas => {
-          currentImageData = canvas.toDataURL("image/jpeg", 0.8); // Снижена качество для размера
+          currentImageData = canvas.toDataURL("image/jpeg", 0.8);
           if (WebApp) {
             WebApp.MainButton.setText("Поделиться фото");
             WebApp.MainButton.show();
             WebApp.MainButton.onClick(shareImage);
           }
+        }).catch(err => {
+          showError("Ошибка генерации изображения");
+          console.error(err);
         });
-      }, 100);
+      }, 150);
     }
 
     async function shareImage() {
-      if (!currentImageData) {
-        showError("Изображение ещё не готово");
-        return;
-      }
+      if (isSharing || !currentImageData) return;
+      isSharing = true;
+      const btn = document.getElementById("shareBtn");
+      btn.disabled = true;
+      setSharingStatus("Отправка...");
 
       try {
         const base64 = currentImageData.split(',')[1];
-        const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'image/jpeg' });
         const file = new File([blob], 'замены.jpg', { type: 'image/jpeg' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file] });
+          await navigator.share({ files: [file], title: 'Замены уроков' });
+          setSharingStatus("Отправлено!");
         } else {
-          // Fallback: скачать
+          throw new Error("Share API не поддерживается");
+        }
+      } catch (err) {
+        console.warn("Share failed, using fallback:", err);
+        setSharingStatus("Отправка через бота...");
+        if (WebApp) {
+          WebApp.sendData(currentImageData.split(',')[1]);
+          WebApp.close();
+        } else {
           const a = document.createElement("a");
           a.href = currentImageData;
           a.download = "замены.jpg";
           a.click();
+          setSharingStatus("Скачано");
         }
-      } catch (err) {
-        showError("Ошибка分享: " + err.message);
-        // Fallback на sendData если в Mini App
-        if (WebApp) {
-          WebApp.sendData(currentImageData.split(',')[1]);
-        }
+      } finally {
+        isSharing = false;
+        btn.disabled = false;
+        setTimeout(() => setSharingStatus(""), 3000);
       }
     }
 
