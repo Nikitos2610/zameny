@@ -73,7 +73,7 @@
       margin: 20px 0;
       display: none;
       max-width: 100%;
-      overflow-x: auto; /* Горизонтальный скролл при необходимости */
+      overflow-x: auto;
     }
     #preview h2 {
       text-align: center;
@@ -87,14 +87,14 @@
       border-collapse: collapse;
       font-size: 14px;
       font-family: Arial, sans-serif;
-      table-layout: fixed; /* Ключевое исправление */
+      table-layout: fixed;
     }
     #preview th,
     #preview td {
       padding: 10px;
       text-align: center;
       border-bottom: 1px solid #eee;
-      word-break: break-word; /* Перенос длинных слов */
+      word-break: break-word;
     }
     #preview th {
       background: #1a73e8;
@@ -194,9 +194,9 @@
         <tbody></tbody>
       </table>
     </div>
-    <!-- Только одна кнопка: сохранить PNG -->
-    <button id="downloadBtn" class="btn-success" onclick="downloadPNG()" style="display:none;">
-      📥 Сохранить как PNG
+    <!-- ЕДИНСТВЕННАЯ КНОПКА -->
+    <button id="openPngBtn" class="btn-success" onclick="openImageInBrowser()" style="display:none;">
+      📥 Открыть PNG для сохранения
     </button>
     <div id="status" class="status"></div>
   </div>
@@ -355,7 +355,7 @@
         tbody.appendChild(row);
       });
       document.getElementById("preview").style.display = "block";
-      document.getElementById("downloadBtn").style.display = "block";
+      document.getElementById("openPngBtn").style.display = "block";
 
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
@@ -373,30 +373,11 @@
       }, 150);
     }
 
-    // === СКАЧИВАНИЕ PNG (работает везде, включая Telegram Web App) ===
-    function downloadPNG() {
+    // ✅ РАБОТАЕТ В TELEGRAM MINI APP
+    function openImageInBrowser() {
       if (!currentImageData) return showError("Сначала сгенерируйте изображение");
-
-      const base64 = currentImageData.split(',')[1];
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/png' });
-
-      // Создаём ссылку и эмулируем клик
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "замены.png";
-      document.body.appendChild(a); // важно для некоторых браузеров
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setStatus("Файл сохранён!");
+      Telegram.WebApp.openLink(currentImageData);
+      setStatus("Открываю изображение...");
     }
 
     // Инициализация
