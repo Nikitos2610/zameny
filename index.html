@@ -61,6 +61,7 @@
       border-bottom: 1px solid #eee;
       font-size: 15px;
       font-family: Arial, sans-serif;
+      word-wrap: break-word;
     }
     .error { color: #d32f2f; font-size: 14px; margin-top: 10px; }
     .no-data { color: #999; font-style: italic; }
@@ -72,7 +73,7 @@
       margin: 20px 0;
       display: none;
       max-width: 100%;
-      font-family: Arial, sans-serif !important;
+      overflow-x: auto; /* Горизонтальный скролл при необходимости */
     }
     #preview h2 {
       text-align: center;
@@ -86,18 +87,19 @@
       border-collapse: collapse;
       font-size: 14px;
       font-family: Arial, sans-serif;
+      table-layout: fixed; /* Ключевое исправление */
+    }
+    #preview th,
+    #preview td {
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      word-break: break-word; /* Перенос длинных слов */
     }
     #preview th {
       background: #1a73e8;
       color: white;
-      padding: 10px;
-      text-align: center;
       font-weight: 600;
-    }
-    #preview td {
-      padding: 10px;
-      border-bottom: 1px solid #eee;
-      text-align: center;
     }
     #preview tr:nth-child(even) {
       background: #f8fbff;
@@ -106,10 +108,11 @@
       font-weight: bold;
       color: #d32f2f;
     }
-    .btn-success { background: #4CAF50; }
+    .btn-success {
+      background: #4CAF50;
+      margin-top: 10px;
+    }
     .btn-success:hover { background: #3d8b40; }
-    .btn-copy { background: #FF9800; margin-top: 5px; }
-    .btn-copy:hover { background: #F57C00; }
     .status {
       color: #666;
       font-size: 14px;
@@ -191,6 +194,10 @@
         <tbody></tbody>
       </table>
     </div>
+    <!-- Только одна кнопка: сохранить PNG -->
+    <button id="downloadBtn" class="btn-success" onclick="downloadPNG()" style="display:none;">
+      📥 Сохранить как PNG
+    </button>
     <div id="status" class="status"></div>
   </div>
 
@@ -238,9 +245,7 @@
     function getSlot() {
       return `${document.getElementById("day").value} ${document.getElementById("lesson").value}`;
     }
-    function updateAll() {
-      updateClasses();
-    }
+    function updateAll() { updateClasses(); }
     function updateClasses() {
       const subject = document.getElementById("subject").value;
       const slot = getSlot();
@@ -333,7 +338,6 @@
           ).join("");
     }
 
-    // === ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ ===
     function generateImage() {
       if (replacements.length === 0) return showError("Нет замен");
       const tbody = document.querySelector("#previewTable tbody");
@@ -351,6 +355,7 @@
         tbody.appendChild(row);
       });
       document.getElementById("preview").style.display = "block";
+      document.getElementById("downloadBtn").style.display = "block";
 
       setTimeout(() => {
         html2canvas(document.getElementById("preview"), {
@@ -361,7 +366,6 @@
           allowTaint: true
         }).then(canvas => {
           currentImageData = canvas.toDataURL("image/png");
-          showNewShareButtons();
         }).catch(err => {
           showError("Ошибка генерации изображения");
           console.error(err);
@@ -369,29 +373,9 @@
       }, 150);
     }
 
-    function showNewShareButtons() {
-      const container = document.querySelector('.container');
-      const existing = container.querySelectorAll('.new-btn');
-      existing.forEach(el => el.remove());
-
-      const btnPNG = document.createElement('button');
-      btnPNG.className = 'btn-success new-btn';
-      btnPNG.textContent = '📤 Отправить как PNG';
-      btnPNG.onclick = shareAsPNG;
-      btnPNG.style.marginTop = '10px';
-      container.appendChild(btnPNG);
-
-      const btnHTML = document.createElement('button');
-      btnHTML.className = 'btn-copy new-btn';
-      btnHTML.textContent = '🌐 Отправить как HTML';
-      btnHTML.onclick = shareAsHTML;
-      btnHTML.style.marginTop = '5px';
-      container.appendChild(btnHTML);
-    }
-
-    // === ОТПРАВКА PNG ===
-    async function shareAsPNG() {
-      if (!currentImageData) return showError("Изображение не готово");
+    // === СКАЧИВАНИЕ PNG (работает везде, включая Telegram Web App) ===
+    function downloadPNG() {
+      if (!currentImageData) return showError("Сначала сгенерируйте изображение");
 
       const base64 = currentImageData.split(',')[1];
       const byteCharacters = atob(base64);
@@ -401,99 +385,18 @@
       }
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: 'image/png' });
-      const file = new File([blob], "замены.png", { type: "image/png" });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: "Замены уроков",
-            text: "Вот актуальные замены в виде изображения"
-          });
-          setStatus("Отправлено!");
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            fallbackDownload(file, "замены.png");
-          }
-        }
-      } else {
-        fallbackDownload(file, "замены.png");
-      }
-    }
-
-    // === ОТПРАВКА HTML ===
-    async function shareAsHTML() {
-      const htmlContent = `
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Замены уроков</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
-    .container { max-width: 600px; margin: auto; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; color: #1a73e8; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
-    th { background: #1a73e8; color: white; }
-    tr:nth-child(even) { background: #f8fbff; }
-    .highlight { font-weight: bold; color: #d32f2f; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>Замены уроков</h2>
-    <table>
-      <thead>
-        <tr><th>Предмет</th><th>День</th><th>Урок</th><th>Класс</th><th>Было</th><th>Стало</th></tr>
-      </thead>
-      <tbody>
-${replacements.map(r => `
-        <tr>
-          <td>${r.subject}</td>
-          <td>${r.day}</td>
-          <td>${r.lesson}</td>
-          <td>${r.class}</td>
-          <td>${r.original}</td>
-          <td class="highlight">${r.replacement}</td>
-        </tr>
-`).join('')}
-      </tbody>
-    </table>
-  </div>
-</body>
-</html>`;
-
-      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-      const file = new File([blob], "замены.html", { type: "text/html" });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: "Замены уроков",
-            text: "Вот замены в виде HTML-карточки (открывается в браузере)"
-          });
-          setStatus("HTML отправлен!");
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            fallbackDownload(file, "замены.html");
-          }
-        }
-      } else {
-        fallbackDownload(file, "замены.html");
-      }
-    }
-
-    function fallbackDownload(file, filename) {
-      const url = URL.createObjectURL(file);
+      // Создаём ссылку и эмулируем клик
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = filename;
+      a.download = "замены.png";
+      document.body.appendChild(a); // важно для некоторых браузеров
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setStatus("Скачано: " + filename);
+
+      setStatus("Файл сохранён!");
     }
 
     // Инициализация
