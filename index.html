@@ -7,10 +7,18 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
+  <!-- Шрифт с кириллицей -->
   <style>
+    @font-face {
+      font-family: 'DejaVu Sans';
+      src: url('https://cdn.jsdelivr.net/npm/dejavu-sans@1.0.0/fonts/dejavu-sans-v14-latin_cyrillic-regular.woff2') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+
     * { box-sizing: border-box; }
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'DejaVu Sans', 'Segoe UI', sans-serif;
       background: #f5f5f5;
       color: #333;
       margin: 0;
@@ -67,7 +75,6 @@
     .error { color: #d32f2f; font-size: 14px; margin-top: 10px; }
     .no-data { color: #999; font-style: italic; }
 
-    /* Блок для скриншота */
     #preview {
       background: white;
       padding: 20px;
@@ -76,7 +83,7 @@
       margin: 20px 0;
       display: none;
       max-width: 100%;
-      font-family: 'Segoe UI', sans-serif !important;
+      font-family: 'DejaVu Sans', sans-serif !important;
     }
     #preview h2 {
       text-align: center;
@@ -127,6 +134,17 @@
 <body>
   <div class="container">
     <h1>Замены уроков</h1>
+
+    <div class="form-group">
+      <label>Учебный предмет</label>
+      <select id="subject" onchange="updateAll()">
+        <option value="">Выберите предмет</option>
+        <option>Математика</option>
+        <option>Русский язык</option>
+        <option>Физика</option>
+        <option>Литература</option>
+      </select>
+    </div>
 
     <div class="form-group">
       <label>День недели</label>
@@ -183,6 +201,7 @@
       <table id="previewTable">
         <thead>
           <tr>
+            <th>Предмет</th>
             <th>День</th>
             <th>Урок</th>
             <th>Класс</th>
@@ -201,19 +220,26 @@
   </div>
 
   <script>
-    // Данные расписания
     const teachers = [
       { name: 'Воронкова', subject: 'Математика', schedule: {
         'Понедельник 1': '6Б', 'Понедельник 2': '7В', 'Понедельник 3': '8Г',
         'Понедельник 4': '6А', 'Понедельник 5': '9Б', 'Понедельник 6': '8Г',
         'Понедельник 7': '10В'
       }},
-      { name: 'Чистопашина', subject: 'Математика', schedule: {} },
+      { name: 'Чистопашина', subject: 'Математика', schedule: {
+        'Вторник 1': '6Б', 'Среда 2': '7В'
+      }},
       { name: 'Петрова', subject: 'Русский язык', schedule: {
         'Вторник 1': '6Б', 'Вторник 2': '7В', 'Среда 3': '8Г'
       }},
       { name: 'Сидорова', subject: 'Русский язык', schedule: {
         'Четверг 4': '9Б', 'Пятница 5': '10В'
+      }},
+      { name: 'Иванов', subject: 'Физика', schedule: {
+        'Понедельник 3': '9Б', 'Среда 4': '10В'
+      }},
+      { name: 'Козлов', subject: 'Физика', schedule: {
+        'Вторник 5': '8Г'
       }},
     ];
 
@@ -249,40 +275,52 @@
       return `${document.getElementById("day").value} ${document.getElementById("lesson").value}`;
     }
 
+    function updateAll() {
+      updateClasses();
+    }
+
     function updateClasses() {
+      const subject = document.getElementById("subject").value;
       const slot = getSlot();
       const classSelect = document.getElementById("classSelect");
       classSelect.innerHTML = '<option value="">Выберите класс</option>';
+
+      if (!subject) return;
+
       const classes = new Set();
       teachers.forEach(t => {
-        if (t.schedule[slot]) classes.add(t.schedule[slot]);
+        if (t.subject === subject && t.schedule[slot]) {
+          classes.add(t.schedule[slot]);
+        }
       });
+
       [...classes].sort().forEach(cls => {
         const opt = document.createElement("option");
         opt.value = cls;
         opt.textContent = cls;
         classSelect.appendChild(opt);
       });
+
       updateTeachers();
     }
 
     function updateTeachers() {
       const teacherSelect = document.getElementById("teacherSelect");
       teacherSelect.innerHTML = '<option value="">Выберите учителя</option>';
+
+      const subject = document.getElementById("subject").value;
       const className = document.getElementById("classSelect").value;
-      if (!className) return;
+      if (!subject || !className) return;
 
       const slot = getSlot();
       let original = null;
-      let subject = null;
       teachers.forEach(t => {
-        if (t.schedule[slot] === className) {
+        if (t.subject === subject && t.schedule[slot] === className) {
           original = t.name;
-          subject = t.subject;
         }
       });
 
-      if (!subject) return;
+      if (!original) return;
 
       teachersBySubject[subject]
         .filter(name => name !== original)
@@ -296,21 +334,22 @@
     }
 
     function addReplacement() {
+      const subject = document.getElementById("subject").value;
       const className = document.getElementById("classSelect").value;
       const newTeacher = document.getElementById("teacherSelect").value;
-      if (!className || !newTeacher) {
-        showError("Выберите класс и учителя");
+
+      if (!subject || !className || !newTeacher) {
+        showError("Заполните все поля");
         return;
       }
 
       const slot = getSlot();
-      const { original, subject } = teachers.reduce((acc, t) => {
-        if (t.schedule[slot] === className) {
-          acc.original = t.name;
-          acc.subject = t.subject;
+      let original = null;
+      teachers.forEach(t => {
+        if (t.subject === subject && t.schedule[slot] === className) {
+          original = t.name;
         }
-        return acc;
-      }, { original: null, subject: null });
+      });
 
       if (!original) {
         showError("Нет урока в этом слоте");
@@ -318,18 +357,19 @@
       }
 
       replacements.push({
-        day: document.getElementById("day").value,
+        subject, day: document.getElementById("day").value,
         lesson: document.getElementById("lesson").value,
-        class: className,
-        original,
-        replacement: newTeacher,
-        subject
+        class: className, original, replacement: newTeacher
       });
 
       updateList();
+      resetForm();
+      showGenerateButton();
+    }
+
+    function resetForm() {
       document.getElementById("classSelect").value = "";
       document.getElementById("teacherSelect").innerHTML = '<option value="">Выберите учителя</option>';
-      showGenerateButton();
     }
 
     function showGenerateButton() {
@@ -343,7 +383,7 @@
         ? "<p class='no-data'>Нет замен</p>"
         : replacements.map(r =>
             `<div class="replacement-item">
-              <strong>${r.day}, ${r.lesson} урок (${r.subject}):</strong> 
+              <strong>${r.subject} | ${r.day}, ${r.lesson} урок:</strong> 
               ${r.class} — ${r.original} → <span style="color:#1a73e8">${r.replacement}</span>
             </div>`
           ).join("");
@@ -357,6 +397,7 @@
       replacements.forEach(r => {
         const row = document.createElement("tr");
         row.innerHTML = `
+          <td>${r.subject}</td>
           <td>${r.day}</td>
           <td>${r.lesson}</td>
           <td>${r.class}</td>
@@ -375,7 +416,8 @@
           scale: 2,
           backgroundColor: "#ffffff",
           logging: false,
-          useCORS: true
+          useCORS: true,
+          allowTaint: true
         }).then(canvas => {
           currentImageData = canvas.toDataURL("image/jpeg", 0.8);
           if (WebApp) {
@@ -384,7 +426,7 @@
             WebApp.MainButton.onClick(shareImage);
           }
         }).catch(err => {
-          showError("Ошибка генерации изображения");
+          showError("Ошибка генерации");
           console.error(err);
         });
       }, 150);
@@ -395,7 +437,7 @@
       isSharing = true;
       const btn = document.getElementById("shareBtn");
       btn.disabled = true;
-      setSharingStatus("Отправка...");
+      setSharingStatus("Подготовка...");
 
       try {
         const base64 = currentImageData.split(',')[1];
@@ -406,27 +448,26 @@
         }
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'image/jpeg' });
-        const file = new File([blob], 'замены.jpg', { type: 'image/jpeg' });
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Замены уроков' });
+        // Официальный способ отправки файла в Telegram Mini App
+        if (WebApp && WebApp.invokeCustomMethod) {
+          await WebApp.invokeCustomMethod('shareFile', {
+            file: blob,
+            filename: 'замены.jpg',
+            caption: 'Замены уроков'
+          });
           setSharingStatus("Отправлено!");
         } else {
-          throw new Error("Share API не поддерживается");
+          throw new Error("WebApp API недоступен");
         }
       } catch (err) {
-        console.warn("Share failed, using fallback:", err);
-        setSharingStatus("Отправка через бота...");
-        if (WebApp) {
-          WebApp.sendData(currentImageData.split(',')[1]);
-          WebApp.close();
-        } else {
-          const a = document.createElement("a");
-          a.href = currentImageData;
-          a.download = "замены.jpg";
-          a.click();
-          setSharingStatus("Скачано");
-        }
+        console.warn("Share failed:", err);
+        setSharingStatus("Ошибка, скачайте");
+        // Fallback: скачать
+        const a = document.createElement("a");
+        a.href = currentImageData;
+        a.download = "замены.jpg";
+        a.click();
       } finally {
         isSharing = false;
         btn.disabled = false;
@@ -435,7 +476,7 @@
     }
 
     // Инициализация
-    updateClasses();
+    updateAll();
     updateList();
   </script>
 </body>
