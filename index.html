@@ -7,18 +7,10 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
-  <!-- Шрифт с кириллицей -->
   <style>
-    @font-face {
-      font-family: 'DejaVu Sans';
-      src: url('https://cdn.jsdelivr.net/npm/dejavu-sans@1.0.0/fonts/dejavu-sans-v14-latin_cyrillic-regular.woff2') format('woff2');
-      font-weight: normal;
-      font-style: normal;
-    }
-
     * { box-sizing: border-box; }
     body {
-      font-family: 'DejaVu Sans', 'Segoe UI', sans-serif;
+      font-family: Arial, sans-serif;
       background: #f5f5f5;
       color: #333;
       margin: 0;
@@ -35,12 +27,13 @@
     h1 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
     .form-group { margin-bottom: 12px; }
     label { display: block; margin-bottom: 5px; font-weight: 600; }
-    select, input {
+    select {
       width: 100%;
       padding: 10px;
       border: 1px solid #ddd;
       border-radius: 8px;
       font-size: 16px;
+      font-family: Arial, sans-serif;
     }
     button {
       background: #1a73e8;
@@ -53,6 +46,7 @@
       margin-top: 10px;
       width: 100%;
       transition: all 0.2s;
+      font-family: Arial, sans-serif;
     }
     button:disabled {
       background: #aaa;
@@ -71,6 +65,7 @@
       padding: 8px 0;
       border-bottom: 1px solid #eee;
       font-size: 15px;
+      font-family: Arial, sans-serif;
     }
     .error { color: #d32f2f; font-size: 14px; margin-top: 10px; }
     .no-data { color: #999; font-style: italic; }
@@ -83,7 +78,7 @@
       margin: 20px 0;
       display: none;
       max-width: 100%;
-      font-family: 'DejaVu Sans', sans-serif !important;
+      font-family: Arial, sans-serif !important;
     }
     #preview h2 {
       text-align: center;
@@ -96,6 +91,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
+      font-family: Arial, sans-serif;
     }
     #preview th {
       background: #1a73e8;
@@ -128,6 +124,7 @@
       font-size: 14px;
       text-align: center;
       margin-top: 10px;
+      font-family: Arial, sans-serif;
     }
   </style>
 </head>
@@ -448,26 +445,33 @@
         }
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'image/jpeg' });
+        const file = new File([blob], 'замены.jpg', { type: 'image/jpeg' });
 
-        // Официальный способ отправки файла в Telegram Mini App
-        if (WebApp && WebApp.invokeCustomMethod) {
-          await WebApp.invokeCustomMethod('shareFile', {
-            file: blob,
-            filename: 'замены.jpg',
-            caption: 'Замены уроков'
+        // КЛЮЧЕВАЯ ПРОВЕРКА: navigator.share в Telegram Mini App
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          setSharingStatus("Выберите чат...");
+          await navigator.share({
+            files: [file],
+            title: 'Замены уроков',
+            text: 'Список замен на сегодня'
           });
           setSharingStatus("Отправлено!");
         } else {
-          throw new Error("WebApp API недоступен");
+          throw new Error("Share API не поддерживается");
         }
       } catch (err) {
         console.warn("Share failed:", err);
-        setSharingStatus("Ошибка, скачайте");
-        // Fallback: скачать
-        const a = document.createElement("a");
-        a.href = currentImageData;
-        a.download = "замены.jpg";
-        a.click();
+        setSharingStatus("Отправка через бота...");
+        if (WebApp) {
+          WebApp.sendData(currentImageData.split(',')[1]);
+          WebApp.close();
+        } else {
+          const a = document.createElement("a");
+          a.href = currentImageData;
+          a.download = "замены.jpg";
+          a.click();
+          setSharingStatus("Скачано");
+        }
       } finally {
         isSharing = false;
         btn.disabled = false;
