@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Замены уроков</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f5f5;
       color: #333;
       margin: 0;
@@ -19,112 +18,79 @@
       max-width: 600px;
       margin: auto;
       background: white;
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
-    h1 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; }
+    h1 {
+      text-align: center;
+      color: #1a73e8;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+    .form-group { margin-bottom: 14px; }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 15px;
+    }
     select {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       border: 1px solid #ddd;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 16px;
-      font-family: Arial, sans-serif;
+      background: white;
     }
     button {
       background: #1a73e8;
       color: white;
       border: none;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 14px;
+      border-radius: 10px;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 10px;
+      margin-top: 12px;
       width: 100%;
-      transition: all 0.2s;
-      font-family: Arial, sans-serif;
+      font-weight: 600;
+      transition: background 0.2s;
     }
     button:hover { background: #1557b0; }
     .replacements {
       margin-top: 20px;
-      padding: 15px;
-      background: #f9f9f9;
-      border-radius: 8px;
-      border: 1px solid #eee;
+      padding: 16px;
+      background: #f8fbff;
+      border-radius: 12px;
+      border: 1px solid #e0e7ff;
       display: none;
     }
     .replacement-item {
-      padding: 8px 0;
-      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+      border-bottom: 1px solid #eaeaea;
       font-size: 15px;
-      font-family: Arial, sans-serif;
-      word-wrap: break-word;
+      line-height: 1.4;
     }
+    .replacement-item:last-child { border: none; }
     .error { color: #d32f2f; font-size: 14px; margin-top: 10px; }
     .no-data { color: #999; font-style: italic; }
-    #preview {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      margin: 20px 0;
-      display: none;
-      max-width: 100%;
-      overflow-x: auto;
+    #sendBtn {
+      background: #00a884;
+      margin-top: 20px;
     }
-    #preview h2 {
-      text-align: center;
-      color: #1a73e8;
-      margin: 0 0 15px 0;
-      font-size: 18px;
-      font-weight: 600;
-    }
-    #preview table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      font-family: Arial, sans-serif;
-      table-layout: fixed;
-    }
-    #preview th,
-    #preview td {
-      padding: 10px;
-      text-align: center;
-      border-bottom: 1px solid #eee;
-      word-break: break-word;
-    }
-    #preview th {
-      background: #1a73e8;
-      color: white;
-      font-weight: 600;
-    }
-    #preview tr:nth-child(even) {
-      background: #f8fbff;
-    }
-    #preview .highlight {
-      font-weight: bold;
-      color: #d32f2f;
-    }
-    .btn-success {
-      background: #4CAF50;
-      margin-top: 10px;
-    }
-    .btn-success:hover { background: #3d8b40; }
+    #sendBtn:hover { background: #008a6a; }
     .status {
       color: #666;
       font-size: 14px;
       text-align: center;
-      margin-top: 10px;
-      font-family: Arial, sans-serif;
+      margin-top: 12px;
+      min-height: 20px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Замены уроков</h1>
+    <h1>📝 Замены уроков</h1>
     <div class="form-group">
       <label>Учебный предмет</label>
       <select id="subject" onchange="updateAll()">
@@ -169,34 +135,14 @@
         <option value="">Выберите учителя</option>
       </select>
     </div>
-    <button onclick="addReplacement()">Добавить замену</button>
+    <button onclick="addReplacement()">➕ Добавить замену</button>
     <div id="error" class="error"></div>
     <div id="replacements" class="replacements">
       <h3>Текущие замены:</h3>
       <div id="list"></div>
     </div>
-    <button id="generateBtn" onclick="generateImage()" style="display:none;">
-      Сгенерировать изображение
-    </button>
-    <div id="preview">
-      <h2>Замены уроков</h2>
-      <table id="previewTable">
-        <thead>
-          <tr>
-            <th>Предмет</th>
-            <th>День</th>
-            <th>Урок</th>
-            <th>Класс</th>
-            <th>Было</th>
-            <th>Стало</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <!-- ЕДИНСТВЕННАЯ КНОПКА -->
-    <button id="openPngBtn" class="btn-success" onclick="openImageInBrowser()" style="display:none;">
-      📥 Открыть PNG для сохранения
+    <button id="sendBtn" onclick="sendReplacements()" style="display:none;">
+      📤 Отправить замены в Telegram
     </button>
     <div id="status" class="status"></div>
   </div>
@@ -230,7 +176,6 @@
       teachersBySubject[t.subject].push(t.name);
     });
     let replacements = [];
-    let currentImageData = null;
 
     function showError(msg) {
       const el = document.getElementById("error");
@@ -316,15 +261,11 @@
       });
       updateList();
       resetForm();
-      showGenerateButton();
+      document.getElementById("sendBtn").style.display = "block";
     }
     function resetForm() {
       document.getElementById("classSelect").value = "";
       document.getElementById("teacherSelect").innerHTML = '<option value="">Выберите учителя</option>';
-    }
-    function showGenerateButton() {
-      document.getElementById("replacements").style.display = "block";
-      document.getElementById("generateBtn").style.display = "block";
     }
     function updateList() {
       const list = document.getElementById("list");
@@ -332,52 +273,43 @@
         ? "<p class='no-data'>Нет замен</p>"
         : replacements.map(r =>
             `<div class="replacement-item">
-              <strong>${r.subject} | ${r.day}, ${r.lesson} урок:</strong> 
-              ${r.class} — ${r.original} → <span style="color:#1a73e8">${r.replacement}</span>
+              <strong>📚 ${r.subject}</strong><br>
+              📅 ${r.day}, урок ${r.lesson}<br>
+              👥 Класс: <b>${r.class}</b><br>
+              👩‍🏫 Было: ${r.original}<br>
+              👨‍🏫 Стало: <b style="color:#1a73e8">${r.replacement}</b>
             </div>`
           ).join("");
     }
 
-    function generateImage() {
-      if (replacements.length === 0) return showError("Нет замен");
-      const tbody = document.querySelector("#previewTable tbody");
-      tbody.innerHTML = "";
-      replacements.forEach(r => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${r.subject}</td>
-          <td>${r.day}</td>
-          <td>${r.lesson}</td>
-          <td>${r.class}</td>
-          <td>${r.original}</td>
-          <td class="highlight">${r.replacement}</td>
-        `;
-        tbody.appendChild(row);
-      });
-      document.getElementById("preview").style.display = "block";
-      document.getElementById("openPngBtn").style.display = "block";
+    // ✅ НАДЁЖНАЯ ОТПРАВКА ЧЕРЕЗ TELEGRAM BOT
+    function sendReplacements() {
+      if (replacements.length === 0) return showError("Нет замен для отправки");
 
-      setTimeout(() => {
-        html2canvas(document.getElementById("preview"), {
-          scale: 2,
-          backgroundColor: "#ffffff",
-          logging: false,
-          useCORS: true,
-          allowTaint: true
-        }).then(canvas => {
-          currentImageData = canvas.toDataURL("image/png");
-        }).catch(err => {
-          showError("Ошибка генерации изображения");
-          console.error(err);
-        });
-      }, 150);
+      // Форматируем красивое сообщение для Telegram (MarkdownV2)
+      let message = "📋 *Замены уроков*\n\n";
+      replacements.forEach(r => {
+        message += `• *${escapeMarkdown(r.subject)}*\n`;
+        message += `  📅 ${r.day}, урок ${r.lesson}\n`;
+        message += `  👥 Класс: ${r.class}\n`;
+        message += `  👩‍🏫 Было: ${escapeMarkdown(r.original)}\n`;
+        message += `  👨‍🏫 Стало: *${escapeMarkdown(r.replacement)}*\n\n`;
+      });
+
+      // Отправляем данные боту через WebApp
+      Telegram.WebApp.sendData(JSON.stringify({
+        action: "send_replacements",
+        text: message.trim()
+      }));
+
+      setStatus("✅ Отправлено! Закройте окно.");
+      Telegram.WebApp.close();
     }
 
-    // ✅ РАБОТАЕТ В TELEGRAM MINI APP
-    function openImageInBrowser() {
-      if (!currentImageData) return showError("Сначала сгенерируйте изображение");
-      Telegram.WebApp.openLink(currentImageData);
-      setStatus("Открываю изображение...");
+    // Экранирование спецсимволов для MarkdownV2 в Telegram
+    function escapeMarkdown(text) {
+      return text
+        .replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
     }
 
     // Инициализация
