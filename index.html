@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Замены уроков</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -105,13 +106,10 @@
       font-weight: bold;
       color: #d32f2f;
     }
-    .btn-send {
-      background: #00a884;
-      margin-top: 15px;
-    }
-    .btn-send:hover {
-      background: #008a6a;
-    }
+    .btn-success { background: #4CAF50; }
+    .btn-success:hover { background: #3d8b40; }
+    .btn-copy { background: #FF9800; margin-top: 5px; }
+    .btn-copy:hover { background: #F57C00; }
     .status {
       color: #666;
       font-size: 14px;
@@ -174,8 +172,8 @@
       <h3>Текущие замены:</h3>
       <div id="list"></div>
     </div>
-    <button id="generateBtn" onclick="generatePreview()" style="display:none;">
-      Сгенерировать таблицу
+    <button id="generateBtn" onclick="generateImage()" style="display:none;">
+      Сгенерировать изображение
     </button>
     <div id="preview">
       <h2>Замены уроков</h2>
@@ -193,13 +191,16 @@
         <tbody></tbody>
       </table>
     </div>
-    <!-- ЕДИНСТВЕННАЯ КНОПКА -->
-    <button id="sendBtn" class="btn-send" onclick="sendToBot()" style="display:none;">
-      📤 Отправить замены боту
+    <!-- Кнопка: Скачать PNG -->
+    <button id="downloadBtn" class="btn-success" onclick="downloadPNG()" style="display:none;">
+      📥 Скачать PNG
+    </button>
+    <!-- Кнопка: Копировать текст -->
+    <button id="copyBtn" class="btn-copy" onclick="copyText()" style="display:none; margin-top:5px;">
+      📋 Копировать текст
     </button>
     <div id="status" class="status"></div>
   </div>
-
   <script>
     const teachers = [
       { name: 'Воронкова', subject: 'Математика', schedule: {
@@ -229,6 +230,8 @@
       teachersBySubject[t.subject].push(t.name);
     });
     let replacements = [];
+    let currentImageData = null;
+    let currentText = "";
 
     function showError(msg) {
       const el = document.getElementById("error");
@@ -336,7 +339,21 @@
           ).join("");
     }
 
-    function generatePreview() {
+    // Генерация Markdown-текста для копирования
+    function generateText() {
+      const lines = ["*Замены уроков*"];
+      replacements.forEach(r => {
+        lines.push(`• *${r.subject}*`);
+        lines.push(`  ${r.day}, урок ${r.lesson}`);
+        lines.push(`  Класс: ${r.class}`);
+        lines.push(`  Было: ${r.original}`);
+        lines.push(`  Стало: *${r.replacement}*`);
+        lines.push("");
+      });
+      return lines.join("\n").trim();
+    }
+
+    function generateImage() {
       if (replacements.length === 0) return showError("Нет замен");
       const tbody = document.querySelector("#previewTable tbody");
       tbody.innerHTML = "";
@@ -353,29 +370,60 @@
         tbody.appendChild(row);
       });
       document.getElementById("preview").style.display = "block";
-      document.getElementById("sendBtn").style.display = "block";
+      document.getElementById("downloadBtn").style.display = "block";
+      document.getElementById("copyBtn").style.display = "block";
+      currentText = generateText();
+
+      // Генерация PNG
+      setTimeout(() => {
+        html2canvas(document.getElementById("preview"), {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        }).then(canvas => {
+          currentImageData = canvas.toDataURL("image/png");
+        }).catch(err => {
+          console.error("Ошибка генерации PNG:", err);
+        });
+      }, 150);
     }
 
-    // Экранирование для MarkdownV2
-    function escapeMd(text) {
-      return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+    // 📋 Копирование текста в буфер
+    async function copyText() {
+      if (!currentText) return showError("Сначала сгенерируйте данные");
+      try {
+        await navigator.clipboard.writeText(currentText);
+        setStatus("✅ Текст скопирован!");
+      } catch (err) {
+        setStatus("❌ Не удалось скопировать");
+      }
     }
 
-    function sendToBot() {
-      if (replacements.length === 0) return showError("Нет данных");
+    // 📥 Скачивание PNG (работает в браузере, не в Telegram Mini App)
+    function downloadPNG() {
+      if (!currentImageData) return showError("Сначала сгенерируйте изображение");
 
-      let msg = "📋 *Замены уроков*\n\n";
-      replacements.forEach(r => {
-        msg += `• *${escapeMd(r.subject)}*\n`;
-        msg += `  📅 ${r.day}, урок ${r.lesson}\n`;
-        msg += `  👥 Класс: ${r.class}\n`;
-        msg += `  👩‍🏫 Было: ${escapeMd(r.original)}\n`;
-        msg += `  👨‍🏫 Стало: *${escapeMd(r.replacement)}*\n\n`;
-      });
+      const base64 = currentImageData.split(',')[1];
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/png' });
 
-      // Отправка боту
-      Telegram.WebApp.sendData(msg.trim());
-      Telegram.WebApp.close(); // закрываем Mini App
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "замены.png";
+      document.body.appendChild(a); // важно для некоторых браузеров
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setStatus("✅ PNG скачан!");
     }
 
     // Инициализация
